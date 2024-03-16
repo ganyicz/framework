@@ -21,8 +21,17 @@ trait InteractsWithExceptionHandling
 
     /**
      * Whether to throw or not, exceptions reported to the exception handler.
+     * 
+     * @property bool
      */
     protected $throwReportedExceptions = false;
+
+    /**
+     * The exceptions that should be handled when exception handling is disabled.
+     * 
+     * @property array
+     */
+    protected $handledExceptions = [];
 
     /**
      * Restore exception handling.
@@ -31,7 +40,7 @@ trait InteractsWithExceptionHandling
      */
     protected function withExceptionHandling()
     {
-        if ($this->originalExceptionHandler) {
+        if ($this->originalExceptionHandler && ! $this->throwReportedExceptions) {
             $this->app->instance(ExceptionHandler::class, $this->originalExceptionHandler);
         }
 
@@ -66,17 +75,9 @@ trait InteractsWithExceptionHandling
      */
     protected function throwReportedExceptions()
     {
-        $handler = app(ExceptionHandler::class);
-
-        property_exists($handler, 'throwReportedExceptions')
-            ? $handler->throwReportedExceptions = true
-            : $handler->reportable(function (Throwable $e) {
-                throw $e;
-            });
-
         $this->throwReportedExceptions = true;
 
-        return $this;
+        return $this->swapExceptionHandler();
     }
 
     /**
@@ -87,16 +88,27 @@ trait InteractsWithExceptionHandling
      */
     protected function withoutExceptionHandling(array $except = [])
     {
+        $this->handledExceptions = $except;
+
+        return $this->swapExceptionHandler();
+    }
+
+    /**
+     * Register a test exception handler.
+     *
+     * @return $this
+     */
+    protected function swapExceptionHandler()
+    {
         if ($this->originalExceptionHandler == null) {
             $this->originalExceptionHandler = app(ExceptionHandler::class);
         }
 
-        $this->app->instance(ExceptionHandler::class, new class($this->originalExceptionHandler, $except, $this->throwReportedExceptions) implements ExceptionHandler
+        $this->app->instance(ExceptionHandler::class, new class($this->originalExceptionHandler, $this->handledExceptions, $this->throwReportedExceptions) implements ExceptionHandler
         {
-            public $throwReportedExceptions;
-
             protected $except;
             protected $originalHandler;
+            protected $throwReportedExceptions;
 
             /**
              * Create a new class instance.

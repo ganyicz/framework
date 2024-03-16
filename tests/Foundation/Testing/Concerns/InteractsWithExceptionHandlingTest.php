@@ -3,8 +3,10 @@
 namespace Illuminate\Tests\Foundation\Testing\Concerns;
 
 use Exception;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Route;
 use Orchestra\Testbench\TestCase;
+use Throwable;
 
 class InteractsWithExceptionHandlingTest extends TestCase
 {
@@ -97,6 +99,22 @@ class InteractsWithExceptionHandlingTest extends TestCase
             ->withExceptionHandling()
             ->withoutExceptionHandling()
             ->withExceptionHandling();
+
+        Route::get('/', function () {
+            rescue(fn () => throw new Exception('Test exception'));
+        });
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Test exception');
+
+        $this->get('/');
+    }
+
+    public function testReportedExceptionsAreThrownEvenWhenExceptionIsShortcircuited()
+    {
+        app(ExceptionHandler::class)->reportable(fn (Throwable $th) => false);
+
+        $this->throwReportedExceptions();
 
         Route::get('/', function () {
             rescue(fn () => throw new Exception('Test exception'));
