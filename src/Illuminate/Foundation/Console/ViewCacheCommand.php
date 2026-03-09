@@ -101,8 +101,12 @@ class ViewCacheCommand extends Command
     {
         $finder = $this->laravel['view']->getFinder();
 
-        return (new Collection($finder->getPaths()))->merge(
+        $paths = (new Collection($finder->getPaths()))->merge(
             (new Collection($finder->getHints()))->flatten()
         );
+
+        return $paths->unique()->reject(function (string $path) use ($paths) {
+           return $paths->contains(fn ($other) =>str_starts_with($path, rtrim($other, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR));
+        })->values();
     }
 }
